@@ -73,6 +73,7 @@ public:
     TGAImage & operator =(const TGAImage &image);
     ~TGAImage();
     bool read_tga_file(const char *filename);
+    bool write_tga_file(const char *filename, bool rle = false);
     bool flip_horizontally();
     bool flip_vertically();
     bool set(int x, int y, TGAColor c);
