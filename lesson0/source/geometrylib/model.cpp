@@ -25,7 +25,7 @@ Model::Model(char* filename):verts(), faces(){
             std::vector<int> f;
             int itrash, idx;
             iss >> trash;
-            while (iss >> idx >> trash >> itrash >> trash >> itrash) { // isstringstream 重载的>>,会根据参数的类型确定读取的内容（这里是int和char）,idx是顶点index，另外两个itrash是vt和vn的index
+            while (iss >> idx >> trash >> itrash >> trash >> itrash) { // isstringstream 重载的>>,会根据参数的类型确定读取的内容（这里是int和char）,idx是顶点index，另外两个itrash是vt和vn的index 目前只要了顶点坐标
                 idx--; // in wavefront obj all indices start at 1, not zero
                 f.push_back(idx);
             }

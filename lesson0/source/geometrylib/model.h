@@ -20,4 +20,4 @@ class Model{
         void PrintFace();
 };
 
-#endif
+#endif //__MODEL_H__

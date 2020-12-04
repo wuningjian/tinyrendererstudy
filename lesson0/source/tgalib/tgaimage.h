@@ -77,6 +77,8 @@ public:
     bool flip_horizontally();
     bool flip_vertically();
     bool set(int x, int y, TGAColor c);
+    int get_width();
+    int get_height();
     TGAColor get(int x, int y);
 };
 

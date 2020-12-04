@@ -306,3 +306,11 @@ bool TGAImage::flip_vertically(){
     delete [] line;
     return true;
 }
+
+int TGAImage::get_width(){
+    return width;
+}
+
+int TGAImage::get_height(){
+    return height;
+}

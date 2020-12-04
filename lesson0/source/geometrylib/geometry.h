@@ -2,6 +2,7 @@
 #define __GEOMETRY_H__
 
 #include <cmath>
+#include <assert.h>
 
 // 模板 vec2 有参构造 无参构造 + - *重载
 template <class t> struct Vec2 {
@@ -15,6 +16,8 @@ template <class t> struct Vec2 {
 	inline Vec2<t> operator +(const Vec2<t> &V) const { return Vec2<t>(u+V.u, v+V.v); }
 	inline Vec2<t> operator -(const Vec2<t> &V) const { return Vec2<t>(u-V.u, v-V.v); }
 	inline Vec2<t> operator *(float f)          const { return Vec2<t>(u*f, v*f); }
+    t operator[](const int i) const {assert(i>=0&&i<2); return (i==0 ? u : v);}
+    t& operator[](const int i) {assert(i>=0&&i<2); return (i==0 ? u : v);}
     template <class > friend std::ostream& operator<<(std::ostream& s, Vec2<t>& v);
 };
 
@@ -28,8 +31,11 @@ template <class t> struct Vec3 {
     Vec3(t _x, t _y, t _z):x(_x),y(_y),z(_z){}
     inline Vec3<t> operator +(const Vec3<t> &V) const {return Vec3<t>(x+V.x, y+V.y, z+V.z); }
     inline Vec3<t> operator -(const Vec3<t> &V) const {return Vec3<t>(x-V.x, y-V.y, z-V.z); }
+    inline Vec3<t> operator ^(const Vec3<t> &V) const {return Vec3<t>(y*V.z-V.y*z, z*V.x-V.z*x, x*V.y-V.x*y); } // 等价cross
     inline t operator *(const Vec3<t> &V) const {return x*V.x + y*V.y + z*V.z; }
-    inline Vec3<t> operator *(const float i) const {return Vec3<t>(x*f, y*f, z*f);}
+    inline Vec3<t> operator *(const float f) const {return Vec3<t>(x*f, y*f, z*f);}
+    t operator[](const int i) const {assert(i>=0&&i<3); return i==0 ? x : (i==1 ? y : z);}
+    t& operator[](const int i) {assert(i>=0&&i<3); return i==0 ? x : (i==1 ? y : z);}
     float norm() const{return std::sqrt(x*x+y*y+z*z);}
     Vec3<t> & normalize() {
         *this = (*this) * (1/norm());
