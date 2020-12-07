@@ -10,6 +10,14 @@ const TGAColor red = TGAColor(0, 0, 255, 255);
 const TGAColor green = TGAColor(0, 255, 0, 255);
 const TGAColor blue = TGAColor(255, 0, 0, 255);
 
+const int width = 1024;
+const int height = 1024;
+
+struct pointAndUv{
+        Vec3f point[3];
+        Vec3f uvs[3];
+    };
+
 //https://github.com/ssloy/tinyrenderer/wiki/Lesson-1-Bresenham%E2%80%99s-Line-Drawing-Algorithm
 // first attempt 失真超级严重
 // void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color){
@@ -100,23 +108,26 @@ Vec3f cross(const Vec3f &v1, const Vec3f &v2){
     return Vec3f(v1.y*v2.z-v1.z*v2.y, v1.z*v2.x-v1.x*v2.z, v1.x*v2.y-v1.y*v2.x);
 };
 
-// 求点的重心坐标
-Vec3f barycentric(Vec2i *pts, Vec2i P) { 
+// 2d 求点的重心坐标
+Vec3f barycentric(Vec3f *pts, Vec2i P) { 
     Vec3f u = cross(Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-P.x), Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-P.y));
     /* `pts` and `P` has integer value as coordinates
        so `abs(u[2])` < 1 means `u[2]` is 0, that means
        triangle is degenerate, in this case return something with negative coordinates */
-    if (std::abs(u.x)<1) return Vec3f(-1,1,1);
-    return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
-} 
+    if (std::abs(u.x)>=1) 
+        return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
 
-void triangle(Vec2i *pts, TGAImage &image, TGAColor color) { 
-    Vec2i bboxmin(image.get_width()-1,  image.get_height()-1); 
-    Vec2i bboxmax(0, 0); 
-    Vec2i clamp(image.get_width()-1, image.get_height()-1); 
+    return Vec3f(-1,1,1);
+}
+
+// 
+void triangle(Vec3f *pts, TGAImage &image, float* zbuffer, TGAColor color) { 
+    Vec2f bboxmin(image.get_width()-1,  image.get_height()-1); 
+    Vec2f bboxmax(0, 0); 
+    Vec2f clamp(image.get_width()-1, image.get_height()-1); 
     for (int i=0; i<3; i++) { 
         for (int j=0; j<2; j++) { 
-            bboxmin[j] = max(0,        min(bboxmin[j], pts[i][j])); 
+            bboxmin[j] = max(0.f,        min(bboxmin[j], pts[i][j])); 
             bboxmax[j] = min(clamp[j], max(bboxmax[j], pts[i][j])); 
         } 
     }// 求得矩形包围盒 
@@ -126,14 +137,67 @@ void triangle(Vec2i *pts, TGAImage &image, TGAColor color) {
         for (P.y=bboxmin.y; P.y<=bboxmax.y; P.y++) { 
             Vec3f bc_screen  = barycentric(pts, P); 
             if (bc_screen.x<0 || bc_screen.y<0 || bc_screen.z<0) continue; 
-            image.set(P.x, P.y, color); 
+            float z = 0.f;
+            for(int i=0; i<3; i++){
+                z += (pts[i][2]*bc_screen[i]);
+            }
+            if(z > zbuffer[P.x*width+P.y]){
+                zbuffer[P.x*width+P.y] = z;
+                image.set(P.x, P.y, color); 
+            }
         } 
     } 
 } 
 
+void triangle(pointAndUv pAU, TGAImage &image, TGAImage *texture, float* zbuffer, float intensity) { 
+// void triangle(pointAndUv pAU, TGAImage &image, float* zbuffer, TGAColor color) { 
+    Vec2f bboxmin(image.get_width()-1,  image.get_height()-1); 
+    Vec2f bboxmax(0, 0); 
+    Vec2f clamp(image.get_width()-1, image.get_height()-1); 
+    for (int i=0; i<3; i++) { 
+        for (int j=0; j<2; j++) { 
+            bboxmin[j] = max(0.f,        min(bboxmin[j], pAU.point[i][j])); 
+            bboxmax[j] = min(clamp[j], max(bboxmax[j], pAU.point[i][j])); 
+        } 
+    }// 求得矩形包围盒 
+    Vec2i P; 
+    TGAColor texCol;
+    // 遍历包围盒所有的点，重心坐标系满足三参数x y z 都>=0的，就是三角形内的点
+    for (P.x=bboxmin.x; P.x<=bboxmax.x; P.x++) { 
+        for (P.y=bboxmin.y; P.y<=bboxmax.y; P.y++) { 
+            Vec3f bc_screen  = barycentric(pAU.point, P); 
+            if (bc_screen.x<0 || bc_screen.y<0 || bc_screen.z<0) continue; 
+            float z = 0.f;
+            for(int i=0; i<3; i++){
+                z += (pAU.point[i][2]*bc_screen[i]);
+            }
+            if(z > zbuffer[P.x*width+P.y]){
+                zbuffer[P.x*width+P.y] = z;
+                float u=0.f, v=0.f;
+                for(int i=0; i<3; i++){
+                    u += (pAU.uvs[i][0]*bc_screen[i]);
+                    v += (pAU.uvs[i][1]*bc_screen[i]);
+                }
+                float floatU = texture->get_width() * u;
+                float floatV = texture->get_height() * (1-v);
+                // cerr << u << " v:" << v << endl;
+                texCol = texture->get(floatU, floatV);
+                image.set(P.x, P.y, texCol*intensity); 
+                // image.set(P.x, P.y, color);
+            }
+        } 
+    } 
+} 
 
-const int width = 1024;
-const int height = 1024;
+Vec3f worldToScreen(Vec3f point){
+    Vec3f ret;
+    ret.x = (int)((point.x+1.)/2.*width+.5);
+    ret.y = (int)((point.y+1.)/2.*height+.5);
+    ret.z = point.z;
+    return ret;
+}
+
+
 
 int main(int argc, char** argv){
     //TGAImage image(width, height, TGAImage::RGBA);
@@ -203,34 +267,46 @@ int main(int argc, char** argv){
     // draw model 重心坐标系 end
 
     Model *model = NULL;
-    if(argc==2){
+    TGAImage *texture = NULL;
+    if(argc==3){
         model = new Model(argv[1]);
+        texture = new TGAImage();
+        texture->read_tga_file(argv[2]);
     }else{
         model = new Model("obj/african_head");
     }
 
     TGAImage image(width, height, TGAImage::RGB);
-    Vec2i point[3];
+
+    pointAndUv pAU;
     Vec3f lightDir = Vec3f(0,0,-1);
     lightDir.normalize();
+
+    float *zbuffer = new float[width*height];
+    for(int i=0; i<width*height; i++){
+        zbuffer[i] = -numeric_limits<float>::max();
+    }
+
     for(int i=0; i<model->nface(); i++){
-        vector<int> faceData = model->face(i);
+        faceData fData = model->face(i);
         Vec3f triangleData[3];
         for(int j=0; j<3; j++) {
-            Vec3f pointRawData = model->vert(faceData[j]);
-            point[j].x = (int)((pointRawData.x+1.)/2.*width);
-            point[j].y = (int)((pointRawData.y+1.)/2.*height);
+            Vec3f pointRawData = model->vert(fData.vertIndice[j]);
             triangleData[j] = pointRawData;
+            pAU.point[j] = worldToScreen(pointRawData);
+            pAU.uvs[j] = model->uv(fData.uvIndices[j]);
         }
-        Vec3f normal = (triangleData[1]-triangleData[0]) ^ (triangleData[2]-triangleData[0]);
+        Vec3f normal = (triangleData[2]-triangleData[0]) ^ (triangleData[1]-triangleData[0]);
         normal.normalize();
         float intensity = normal*lightDir;
-        if (intensity <=0 ) continue;
-        triangle(point, image, TGAColor(intensity*255, intensity*255, intensity*255, 255));
+        if (intensity >0 ){
+            triangle(pAU, image, texture, zbuffer, intensity);
+            // triangle(pAU, image, zbuffer, TGAColor(rand()%255, rand()%255, rand()%255, 255));
+        }
         // triangle(point, image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
     }
     image.flip_vertically();
-    image.write_tga_file("out_model_triangle_barycentric_normal_intensity.tga");
+    image.write_tga_file("out_model_zbuffer_diffuse.tga");
 
     // 画个矩形
     // for(int i=30; i<60; i++){

@@ -66,7 +66,7 @@ bool TGAImage::read_tga_file(const char *filename){
     width = header.width;
     height = header.height;
     bytespp = header.bitsperpixel>>3;//bits to bytes
-    if(width<=0 || height<=0 || (bytespp!=GRAYSCALE || bytespp != RGB || bytespp!=RGBA)){
+    if(width<=0 || height<=0 || (bytespp!= GRAYSCALE && bytespp != RGB && bytespp != RGBA)){
         cerr<<"error bytespp, width or height value!" << endl;
         in.close();
         return false;

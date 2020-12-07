@@ -53,6 +53,13 @@ struct TGAColor{
         }
         return *this;
     }
+
+    TGAColor & operator *(const float f){
+        for(int i=0; i<bytespp; i++){
+            raw[i] *= f;
+        }
+        return *this;
+    }
 };
 
 class TGAImage{
