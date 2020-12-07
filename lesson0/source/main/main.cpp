@@ -174,7 +174,7 @@ void triangle(pointAndUv pAU, TGAImage &image, TGAImage *texture, float* zbuffer
             if(z > zbuffer[P.x*width+P.y]){
                 zbuffer[P.x*width+P.y] = z;
                 float u=0.f, v=0.f;
-                for(int i=0; i<3; i++){
+                for(int i=0; i<3; i++){ // 数据插值的核心-重心坐标系（1-u-v, u, v）,该比例能运用在左右的顶点数据
                     u += (pAU.uvs[i][0]*bc_screen[i]);
                     v += (pAU.uvs[i][1]*bc_screen[i]);
                 }
