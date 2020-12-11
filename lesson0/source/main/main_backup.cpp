@@ -1,6 +1,5 @@
 #include "tgaimage.h"
 #include "model.h"
-#include "matrix.h"
 #include "geometry.h"
 #include <vector>
 #include <iostream>
@@ -19,38 +18,6 @@ struct pointAndUv{
         Vec3f point[3];
         Vec3f uvs[3];
     };
-
-Model *model = NULL;
-int *zbuffer = NULL;
-Vec3f light_dir(0,0,-1);
-Vec3f camera(0,0,3);
-
-Vec3f m2v(Matrix m) {
-    return Vec3f(m[0][0]/m[3][0], m[1][0]/m[3][0], m[2][0]/m[3][0]);
-}
-
-Matrix v2m(Vec3f v) {
-    Matrix m(4, 1);
-    m[0][0] = v.x;
-    m[1][0] = v.y;
-    m[2][0] = v.z;
-    m[3][0] = 1.f;
-    return m;
-}
-
-// viewport(width/8, height/8, width*3/4, height*3/4);
-// 这里的viewport是view矩阵，还没搞明白为啥这样变换
-Matrix viewport(int x, int y, int w, int h) {
-    Matrix m = Matrix::identity(4);
-    m[0][3] = x+w/2.f;
-    m[1][3] = y+h/2.f;
-    m[2][3] = depth/2.f;
-
-    m[0][0] = w/2.f;
-    m[1][1] = h/2.f;
-    m[2][2] = depth/2.f;
-    return m;
-}
 
 //https://github.com/ssloy/tinyrenderer/wiki/Lesson-1-Bresenham%E2%80%99s-Line-Drawing-Algorithm
 // first attempt 失真超级严重
@@ -183,7 +150,7 @@ void triangle(Vec3f *pts, TGAImage &image, float* zbuffer, TGAColor color) {
     } 
 } 
 
-void triangle(pointAndUv pAU, TGAImage &image, TGAImage *texture, float* zbuffer, float intensity) { 
+void triangle(pointAndUv pAU, TGAImage &image, TGAImage *texture, int* zbuffer, float intensity) { 
 // void triangle(pointAndUv pAU, TGAImage &image, float* zbuffer, TGAColor color) { 
     Vec2f bboxmin(image.get_width()-1,  image.get_height()-1); 
     Vec2f bboxmax(0, 0); 
@@ -304,7 +271,6 @@ int main(int argc, char** argv){
 
     Model *model = NULL;
     TGAImage *texture = NULL;
-    float *zbuffer = new float[width*height];
     if(argc==3){
         model = new Model(argv[1]);
         texture = new TGAImage();
@@ -315,91 +281,35 @@ int main(int argc, char** argv){
 
     TGAImage image(width, height, TGAImage::RGB);
 
-    {   
-        // 投影矩阵
-        Matrix Projection = Matrix::identity(4);
-        Matrix ViewPort   = viewport(width/8, height/8, width*3/4, height*3/4);
-        Projection[3][2] = -1.f/camera.z;
+    pointAndUv pAU;
+    Vec3f lightDir = Vec3f(0,0,-1);
+    lightDir.normalize();
 
-        pointAndUv pAU;
-        Vec3f lightDir = Vec3f(0,0,-1);
-        lightDir.normalize();
-
-        for(int i=0; i<width*height; i++){
-            zbuffer[i] = -numeric_limits<float>::max();
-        }
-
-        for(int i=0; i<model->nface(); i++){
-            faceData fData = model->face(i);
-            Vec3f triangleData[3];
-            for(int j=0; j<3; j++) {
-                Vec3f pointRawData = model->vert(fData.vertIndice[j]);
-                triangleData[j] = pointRawData;
-
-                pAU.point[j] = m2v(ViewPort*Projection*v2m(pointRawData));
-                // pAU.point[j] = worldToScreen(pointRawData);
-                // cout << pAU.point[j].x << " " << pAU.point[j].y << " " << pAU.point[j].z << endl;
-
-                pAU.uvs[j] = model->uv(fData.uvIndices[j]);
-            }
-            Vec3f normal = (triangleData[2]-triangleData[0]) ^ (triangleData[1]-triangleData[0]);
-            normal.normalize();
-            float intensity = normal*lightDir;
-            if (intensity >0 ){
-                triangle(pAU, image, texture, zbuffer, intensity);
-                // triangle(pAU, image, zbuffer, TGAColor(rand()%255, rand()%255, rand()%255, 255));
-            }
-            // triangle(point, image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
-        }
-        image.flip_vertically();
-        image.write_tga_file("out_model_diffuse_projection.tga");
+    int *zbuffer = new int[width*height];
+    for(int i=0; i<width*height; i++){
+        zbuffer[i] = numeric_limits<int>::max();
     }
 
-    {
-        TGAImage depth_image(width, height, TGAImage::RGB);
-        int gray = 0;
-        TGAColor grayColor;
-        for(int i=0; i<width; i++){
-            for(int j=0; j<height; j++){
-                gray = floor(zbuffer[i+j*width]);
-                depth_image.set(i, j, TGAColor(gray, gray, gray, 255));
-            }     
+    for(int i=0; i<model->nface(); i++){
+        faceData fData = model->face(i);
+        Vec3f triangleData[3];
+        for(int j=0; j<3; j++) {
+            Vec3f pointRawData = model->vert(fData.vertIndice[j]);
+            triangleData[j] = pointRawData;
+            pAU.point[j] = worldToScreen(pointRawData);
+            pAU.uvs[j] = model->uv(fData.uvIndices[j]);
         }
-        depth_image.flip_vertically();
-        depth_image.write_tga_file("out_zbuffer.tga");
+        Vec3f normal = (triangleData[2]-triangleData[0]) ^ (triangleData[1]-triangleData[0]);
+        normal.normalize();
+        float intensity = normal*lightDir;
+        if (intensity >0 ){
+            triangle(pAU, image, texture, zbuffer, intensity);
+            // triangle(pAU, image, zbuffer, TGAColor(rand()%255, rand()%255, rand()%255, 255));
+        }
+        // triangle(point, image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
     }
-
-    // { // draw the model
-    //     Matrix Projection = Matrix::identity(4);
-    //     Matrix ViewPort   = viewport(width/8, height/8, width*3/4, height*3/4);
-    //     Projection[3][2] = -1.f/camera.z;
-
-    //     TGAImage image(width, height, TGAImage::RGB);
-    //     for (int i=0; i<model->nfaces(); i++) {
-    //         std::vector<int> face = model->face(i);
-    //         Vec3f screen_coords[3];
-    //         Vec3f world_coords[3];
-    //         for (int j=0; j<3; j++) {
-    //             Vec3f v = model->vert(face[j]);
-    //             screen_coords[j] =  m2v(ViewPort*Projection*v2m(v));
-    //             world_coords[j]  = v;
-    //         }
-    //         Vec3f n = (world_coords[2]-world_coords[0])^(world_coords[1]-world_coords[0]);
-    //         n.normalize();
-    //         float intensity = n*light_dir;
-    //         if (intensity>0) {
-    //             Vec2i uv[3];
-    //             for (int k=0; k<3; k++) {
-    //                 uv[k] = model->uv(i, k);
-    //             }
-    //             triangle(screen_coords[0], screen_coords[1], screen_coords[2], uv[0], uv[1], uv[2], image, intensity, zbuffer);
-    //         }
-    //     }
-
-    //     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
-    //     image.write_tga_file("output.tga");
-    // }
-    
+    image.flip_vertically();
+    image.write_tga_file("out_model_diffuse_projection.tga");
 
     delete model;
     if(texture!=NULL) delete texture;
