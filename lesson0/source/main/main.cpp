@@ -39,7 +39,7 @@ Matrix v2m(Vec3f v) {
 }
 
 // viewport(width/8, height/8, width*3/4, height*3/4);
-// 这里的viewport是view矩阵，还没搞明白为啥这样变换
+// 这里的viewport是view矩阵，把[-1,1]*[-1,1]*[-1,1]的坐标变换到[x,x+w]*[y,y+h]*[0,d]的立方体中。渲染管线一般把x，y定为0
 Matrix viewport(int x, int y, int w, int h) {
     Matrix m = Matrix::identity(4);
     m[0][3] = x+w/2.f;
