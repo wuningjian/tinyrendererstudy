@@ -2,11 +2,13 @@
 #define __MATRIX_H__
 
 #include <vector>
+#include "geometry.h"
 using namespace std;
 const int default_row = 4;
 class Matrix{
 public:
     Matrix(int r=default_row, int c=default_row);
+    Matrix(Vec3f vec);
     ~Matrix();
     vector<float> & operator[](const int row);
     Matrix operator * (const Matrix &mul);

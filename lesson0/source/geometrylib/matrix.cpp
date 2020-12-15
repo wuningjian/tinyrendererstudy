@@ -6,6 +6,13 @@ Matrix::Matrix(int r, int c):rows(r), cols(c){
     m = vector<vector<float>>(r, vector<float>(c, 1.f));
 }
 
+Matrix::Matrix(Vec3f vec):rows(4), cols(1){
+    m = vector<vector<float>>(4, vector<float>(1, 1.f));
+    m[0][0] = vec[0];
+    m[1][0] = vec[1];
+    m[2][0] = vec[2];
+}
+
 Matrix::~Matrix(){}
 
 int Matrix::row(){return rows;}

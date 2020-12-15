@@ -23,18 +23,26 @@ struct pointAndUv{
 Model *model = NULL;
 int *zbuffer = NULL;
 Vec3f light_dir(0,0,-1);
-Vec3f camera(0,0,3);
+Vec3f center(0,0,0);
+Vec3f camera(1,1,3);
+Vec3f up(0,1,0);
 
 Vec3f m2v(Matrix m) {
     return Vec3f(m[0][0]/m[3][0], m[1][0]/m[3][0], m[2][0]/m[3][0]);
 }
 
-Matrix v2m(Vec3f v) {
-    Matrix m(4, 1);
-    m[0][0] = v.x;
-    m[1][0] = v.y;
-    m[2][0] = v.z;
-    m[3][0] = 1.f;
+// 返回ModelView矩阵 z正方向是摄像机只想模型中心点
+Matrix v2m(Vec3f camera, Vec3f center, Vec3f up) {
+    Vec3f z = (center-camera).normalize();
+    Vec3f x = (up ^ z).normalize();
+    Vec3f y = (z ^ x).normalize();
+    Matrix m = Matrix::identity(4);
+    for(int i = 0; i < 3; i++){
+        m[0][i] = x[i];
+        m[1][i] = y[i];
+        m[2][i] = z[i];
+        m[i][3] = -center[i];
+    }
     return m;
 }
 
@@ -317,9 +325,10 @@ int main(int argc, char** argv){
 
     {   
         // 投影矩阵
+        Matrix ModelView = v2m(camera, center, up);
         Matrix Projection = Matrix::identity(4);
         Matrix ViewPort   = viewport(width/8, height/8, width*3/4, height*3/4);
-        Projection[3][2] = -1.f/camera.z;
+        Projection[3][2] = -1.f/(camera-center).norm();
 
         pointAndUv pAU;
         Vec3f lightDir = Vec3f(0,0,-1);
@@ -329,6 +338,8 @@ int main(int argc, char** argv){
             zbuffer[i] = -numeric_limits<float>::max();
         }
 
+        Matrix mvp = ViewPort*Projection*ModelView;
+
         for(int i=0; i<model->nface(); i++){
             faceData fData = model->face(i);
             Vec3f triangleData[3];
@@ -336,7 +347,7 @@ int main(int argc, char** argv){
                 Vec3f pointRawData = model->vert(fData.vertIndice[j]);
                 triangleData[j] = pointRawData;
 
-                pAU.point[j] = m2v(ViewPort*Projection*v2m(pointRawData));
+                pAU.point[j] = m2v(mvp * Matrix(pointRawData));
                 // pAU.point[j] = worldToScreen(pointRawData);
                 // cout << pAU.point[j].x << " " << pAU.point[j].y << " " << pAU.point[j].z << endl;
 
@@ -352,7 +363,7 @@ int main(int argc, char** argv){
             // triangle(point, image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
         }
         image.flip_vertically();
-        image.write_tga_file("out_model_diffuse_projection.tga");
+        image.write_tga_file("out_model_mvp.tga");
     }
 
     {
@@ -368,38 +379,6 @@ int main(int argc, char** argv){
         depth_image.flip_vertically();
         depth_image.write_tga_file("out_zbuffer.tga");
     }
-
-    // { // draw the model
-    //     Matrix Projection = Matrix::identity(4);
-    //     Matrix ViewPort   = viewport(width/8, height/8, width*3/4, height*3/4);
-    //     Projection[3][2] = -1.f/camera.z;
-
-    //     TGAImage image(width, height, TGAImage::RGB);
-    //     for (int i=0; i<model->nfaces(); i++) {
-    //         std::vector<int> face = model->face(i);
-    //         Vec3f screen_coords[3];
-    //         Vec3f world_coords[3];
-    //         for (int j=0; j<3; j++) {
-    //             Vec3f v = model->vert(face[j]);
-    //             screen_coords[j] =  m2v(ViewPort*Projection*v2m(v));
-    //             world_coords[j]  = v;
-    //         }
-    //         Vec3f n = (world_coords[2]-world_coords[0])^(world_coords[1]-world_coords[0]);
-    //         n.normalize();
-    //         float intensity = n*light_dir;
-    //         if (intensity>0) {
-    //             Vec2i uv[3];
-    //             for (int k=0; k<3; k++) {
-    //                 uv[k] = model->uv(i, k);
-    //             }
-    //             triangle(screen_coords[0], screen_coords[1], screen_coords[2], uv[0], uv[1], uv[2], image, intensity, zbuffer);
-    //         }
-    //     }
-
-    //     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
-    //     image.write_tga_file("output.tga");
-    // }
-    
 
     delete model;
     if(texture!=NULL) delete texture;

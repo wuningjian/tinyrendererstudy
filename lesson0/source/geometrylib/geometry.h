@@ -31,7 +31,7 @@ template <class t> struct Vec3 {
     Vec3(t _x, t _y, t _z):x(_x),y(_y),z(_z){}
     inline Vec3<t> operator +(const Vec3<t> &V) const {return Vec3<t>(x+V.x, y+V.y, z+V.z); }
     inline Vec3<t> operator -(const Vec3<t> &V) const {return Vec3<t>(x-V.x, y-V.y, z-V.z); }
-    inline Vec3<t> operator ^(const Vec3<t> &V) const {return Vec3<t>(y*V.z-V.y*z, z*V.x-V.z*x, x*V.y-V.x*y); } // 等价cross
+    inline Vec3<t> operator ^(const Vec3<t> &V) const {return Vec3<t>(y*V.z-V.y*z, z*V.x-V.z*x, x*V.y-V.x*y); } // 叉乘
     inline t operator *(const Vec3<t> &V) const {return x*V.x + y*V.y + z*V.z; }
     inline Vec3<t> operator *(const float f) const {return Vec3<t>(x*f, y*f, z*f);}
     t operator[](const int i) const {assert(i>=0&&i<3); return i==0 ? x : (i==1 ? y : z);}
